@@ -7,6 +7,7 @@ pub fn init_db() -> rusqlite::Result<()> {
             id INTEGER PRIMARY KEY,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
             cpu_usage REAL,
+            cpu_io_wait REAL,
             used_memory INTEGER,
             avail_memory INTEGER,
             total_memory INTEGER,

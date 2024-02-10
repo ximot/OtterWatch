@@ -65,16 +65,16 @@ async fn collect_and_save_stats(interval_secs: &u64, db_file_name: &String, db_s
 
         let mem_used = mem_total - mem_free;
         conn.execute(
-            "INSERT INTO stats (cpu_usage, used_memory, avail_memory, total_memory, swap_free_memory, swap_total_memory) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            params![cpu_usage, mem_used, mem_avail, mem_total, swap_free, swap_total],
+            "INSERT INTO stats (cpu_usage, cpu_io_wait, used_memory, avail_memory, total_memory, swap_free_memory, swap_total_memory) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![cpu_usage.0, cpu_usage.1, mem_used, mem_avail, mem_total, swap_free, swap_total],
         ).expect("Failed to insert stats");
 
-        println!("Stats saved: CPU usage: {:.2}%, Used memory: {} KB, Available memory {} KB, Total memory: {} KB, Swap free: {} KB, Swap Total: {} KB",
-                 cpu_usage, mem_used, mem_avail, mem_total, swap_free, swap_total);
+        println!("Stats saved: CPU usage: {:.2}%, CPU IO Wait: {:.2}%, Used memory: {} KB, Available memory {} KB, Total memory: {} KB, Swap free: {} KB, Swap Total: {} KB",
+                 cpu_usage.0, cpu_usage.1, mem_used, mem_avail, mem_total, swap_free, swap_total);
 
         let mut disk_info = disk_io::get_physical_disk_io_stats();
-        while (!disk_info.is_empty()) {
-            let mut item = disk_info.pop().unwrap();
+        while !disk_info.is_empty() {
+            let item = disk_info.pop().unwrap();
             conn.execute(
                 "INSERT INTO disks (disk_name, read_count, write_count, read_io_time, write_io_time) VALUES (?1, ?2, ?3, ?4, ?5)",
                 params![item.devices, item.read_ops, item.write_ops, item.read_time_ms, item.write_time_ms])
@@ -124,7 +124,7 @@ async fn system_stats() -> HttpResponse {
 }
 
 async fn system_stats_my() -> HttpResponse {
-    let stats = format!("My CPU Usage: {:.2}%\n", cpu::read_cpu_stats().await);
+    let stats = format!("My CPU Usage: {:.2}%\n", cpu::read_cpu_stats().await.0);
     HttpResponse::Ok().content_type("text/plain").body(stats)
 }
 

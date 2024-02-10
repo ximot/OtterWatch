@@ -1,4 +1,3 @@
-use log::error;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -74,9 +73,9 @@ pub fn get_physical_disk_io_stats() -> Vec<DiskInfo> {
             let device = parts[2];
 
             // Sprawdź, czy nazwa urządzenia pasuje do fizycznego dysku (ignoruj partycje)
-            if (Regex::new("^sd[a-z]$").unwrap().is_match(device)
+            if Regex::new("^sd[a-z]$").unwrap().is_match(device)
                 || Regex::new("^hd[a-z]$").unwrap().is_match(device)
-                || Regex::new("^nvme[0-9]n[0-1]$").unwrap().is_match(device))
+                || Regex::new("^nvme[0-9]n[0-1]$").unwrap().is_match(device)
             {
                 let read_ops = parts[5];
                 let write_ops = parts[9];
@@ -112,9 +111,9 @@ pub fn print_physical_disk_io_stats() {
             let device = parts[2];
 
             // Sprawdź, czy nazwa urządzenia pasuje do fizycznego dysku (ignoruj partycje)
-            if (Regex::new("^sd[a-z]$").unwrap().is_match(device)
+            if Regex::new("^sd[a-z]$").unwrap().is_match(device)
                 || Regex::new("^hd[a-z]$").unwrap().is_match(device)
-                || Regex::new("^nvme[0-9]n[0-1]$").unwrap().is_match(device))
+                || Regex::new("^nvme[0-9]n[0-1]$").unwrap().is_match(device)
             {
                 let read_ops = parts[5];
                 let write_ops = parts[9];
