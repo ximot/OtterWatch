@@ -1,3 +1,4 @@
+![OtterWatch](media/logo.png)
 ## OtterWatch - Performance monitoring for the Linux operating system
 
 *Application under development*
