@@ -1,7 +1,9 @@
+mod app_config;
 mod cpu;
 mod db;
 mod disk_io;
 mod memory;
+mod network;
 mod osinfo;
 
 use actix_web::{web, App, HttpResponse, HttpServer};
@@ -19,6 +21,7 @@ struct Settings {
     db_file_name: String,
     db_save: bool,
     db_history_days: u64,
+    exclude_interfaces: String,
 }
 
 #[derive(Serialize)]
@@ -50,10 +53,16 @@ async fn clean_history_data_in_db(days_old: u64, db_file_name: String) -> rusqli
     }
 }
 
-async fn collect_and_save_stats(interval_secs: &u64, db_file_name: &String, db_save: &bool) {
+async fn collect_and_save_stats(
+    interval_secs: &u64,
+    db_file_name: &String,
+    db_save: &bool,
+    exluded_interfaces: Vec<String>,
+) {
     if *db_save == false {
         return;
     }
+
     let mut interval = time::interval(Duration::from_secs(*interval_secs));
     let conn = Connection::open(db_file_name).expect("DB connection failed!");
 
@@ -78,7 +87,17 @@ async fn collect_and_save_stats(interval_secs: &u64, db_file_name: &String, db_s
             conn.execute(
                 "INSERT INTO disks (disk_name, read_count, write_count, read_io_time, write_io_time) VALUES (?1, ?2, ?3, ?4, ?5)",
                 params![item.devices, item.read_ops, item.write_ops, item.read_time_ms, item.write_time_ms])
-                .expect("Faile to insert disk stats");
+                .expect("Failed to insert disk stats");
+        }
+
+        let mut network_info = network::get_network_io_stats(exluded_interfaces.clone());
+
+        while !network_info.is_empty() {
+            let item = network_info.pop().unwrap();
+            conn.execute(
+                "INSERT INTO network (interface_name, bytes_received, bytes_transmitted) VALUES (?1, ?2, ?3)",
+                params![item.interface_name, item.bytes_received, item.bytes_transmitted],
+            ).expect("Failed to insert network stats");
         }
     }
 }
@@ -150,8 +169,20 @@ async fn main() -> std::io::Result<()> {
     // osinfo::save_os_info_to_db(&file_db_name);
     osinfo::show_and_save_os_info_to_db(&file_db_name);
 
+    let exclude_interfaces = config
+        .exclude_interfaces
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .collect::<Vec<String>>();
+
     tokio::spawn(async move {
-        collect_and_save_stats(&config.interval_secs, &config.db_file_name, &config.db_save).await;
+        collect_and_save_stats(
+            &config.interval_secs,
+            &config.db_file_name,
+            &config.db_save,
+            exclude_interfaces,
+        )
+        .await;
     });
 
     tokio::spawn(async move {

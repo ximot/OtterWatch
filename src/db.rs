@@ -41,5 +41,15 @@ pub fn init_db() -> rusqlite::Result<()> {
         )",
         [],
     )?;
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS network (
+            id INTEGER PRIMARY KEY,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            interface_name TEXT,
+            bytes_received NUMERIC,
+            bytes_transmitted NUMERIC
+        )",
+        [],
+    )?;
     Ok(())
 }
