@@ -3,9 +3,7 @@ use std::time::Duration;
 
 pub async fn read_cpu_stats() -> (f64, f64) {
     let (total1, idle1, iowait1) = read_cpu_usage();
-    // Dajemy czas dla CPU niech się napracuje przez sek :)
     tokio::time::sleep(Duration::from_secs(1)).await;
-    // Sprawdzamy ile się napracował :)
     let (total2, idle2, iowait2) = read_cpu_usage();
 
     let total_diff = total2 - total1;
@@ -20,7 +18,6 @@ pub async fn read_cpu_stats() -> (f64, f64) {
     )
 }
 
-// Czytamy zawartośc /proc/stat i parsujemy na nasze potrzeby
 fn read_cpu_usage() -> (u64, u64, u64) {
     let content = fs::read_to_string("/proc/stat").unwrap();
     let line = content.lines().next().unwrap();
