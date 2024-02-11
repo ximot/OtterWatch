@@ -47,7 +47,7 @@ async fn collect_and_save_stats(
     interval_secs: &u64,
     db_file_name: &String,
     db_save: &bool,
-    exluded_interfaces: Vec<String>,
+    excluded_interfaces: Vec<String>,
 ) {
     if *db_save == false {
         return;
@@ -80,7 +80,7 @@ async fn collect_and_save_stats(
                 .expect("Failed to insert disk stats");
         }
 
-        let mut network_info = network::get_network_io_stats(exluded_interfaces.clone());
+        let mut network_info = network::get_network_io_stats(excluded_interfaces.clone());
 
         while !network_info.is_empty() {
             let item = network_info.pop().unwrap();
@@ -92,66 +92,14 @@ async fn collect_and_save_stats(
     }
 }
 
-// async fn system_stats() -> HttpResponse {
-//     let mut system = System::new_all();
-//     system.refresh_all();
-//     let cpu_usage = system.global_cpu_info().cpu_usage();
-//     let total_memory = system.total_memory();
-//     let free_memory = system.free_memory();
-//     let used_memory = system.used_memory();
-//     //let cpu_name = system.cpus()[0].brand();
-//     let cpu_speed = system.cpus()[0].frequency();
-//     let mut cpu_real_usage = 0f32;
-//
-//     tokio::time::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL).await;
-//     system.refresh_cpu();
-//
-//     for cpu in system.cpus() {
-//         cpu_real_usage += cpu.cpu_usage()
-//     }
-//
-//     let cpu_0: f32 = system.cpus()[0].cpu_usage();
-//     let cpu_1: f32 = system.cpus()[1].cpu_usage();
-//     let cpu_2: f32 = system.cpus()[2].cpu_usage();
-//     let cpu_3: f32 = system.cpus()[3].cpu_usage();
-//     let cpu_4: f32 = system.cpus()[4].cpu_usage();
-//     let cpu_5: f32 = system.cpus()[5].cpu_usage();
-//     let cpu_6: f32 = system.cpus()[6].cpu_usage();
-//     let cpu_7: f32 = system.cpus()[7].cpu_usage();
-//     let cpu_8: f32 = system.cpus()[8].cpu_usage();
-//     let cpu_9: f32 = system.cpus()[9].cpu_usage();
-//     let cpu_10: f32 = system.cpus()[10].cpu_usage();
-//     let cpu_11: f32 = system.cpus()[11].cpu_usage();
-//
-//     cpu_real_usage = cpu_real_usage / system.cpus().len() as f32;
-//
-//     let stats = format!(
-//         "CPU Usage: {:.2}%\nCPU Usage (AVG): {:.2}%\nCPU 1 Usage: {:.2}%\nCPU 2 Usage: {:.2}%\nCPU 3 Usage: {:.2}%\nCPU 4 Usage: {:.2}%\nCPU 5 Usage: {:.2}%\nCPU 6 Usage: {:.2}%\nCPU 7 Usage: {:.2}%\nCPU 8 Usage: {:.2}%\nCPU 9 Usage: {:.2}%\nCPU 10 Usage: {:.2}%\nCPU 11 Usage: {:.2}%\nCPU 12 Usage: {:.2}%\nTotal Memory: {} B\nUsed Memory: {} B\nFree Memory: {} B\nCPU Frequency: {} MHz",
-//         cpu_real_usage, cpu_usage, cpu_0, cpu_1 , cpu_2 , cpu_3 , cpu_4 , cpu_5 , cpu_6 , cpu_7 , cpu_8 , cpu_9 , cpu_10, cpu_11  , total_memory, used_memory, free_memory, cpu_speed
-//     );
-//     HttpResponse::Ok().content_type("text/plain").body(stats)
-// }
-
-async fn system_stats_my() -> HttpResponse {
+async fn system_stats() -> HttpResponse {
     let stats = format!("My CPU Usage: {:.2}%\n", cpu::read_cpu_stats().await.0);
     HttpResponse::Ok().content_type("text/plain").body(stats)
 }
 
-// async fn system_stats_json() -> HttpResponse {
-//     let mut system = System::new_all();
-//     system.refresh_all();
-//     let stats = SystemStats {
-//         cpu_usage: system.global_cpu_info().cpu_usage(),
-//         used_memory: system.used_memory(),
-//         total_memory: system.total_memory(),
-//     };
-//
-//     HttpResponse::Ok().json(stats)
-// }
-
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let config = app_config::load_confg().expect("Failed to load configuration from file");
+    let config = app_config::load_config().expect("Failed to load configuration from file");
     let file_db_name = config.db_file_name.clone();
 
     db::init_db().expect("Failed to initialize database");
@@ -181,9 +129,7 @@ async fn main() -> std::io::Result<()> {
 
     HttpServer::new(|| {
         App::new()
-            // .route("/system-stats", web::get().to(system_stats))
-            // .route("/system-stats-json", web::get().to(system_stats_json))
-            .route("/system-stats-my", web::get().to(system_stats_my))
+            .route("/system-stats", web::get().to(system_stats))
     })
     .bind(&config.listen_addr)?
     .run()

@@ -7,9 +7,6 @@ pub fn print_disk_io_stats(device: &str) {
         for line in diskstats.lines() {
             let parts: Vec<&str> = line.split_whitespace().collect();
             if parts.len() > 3 && parts[2] == device {
-                // Zakładając, że parts[2] to nazwa urządzenia
-                // parts[5] - liczba wykonanych operacji odczytu
-                // parts[9] - liczba wykonanych operacji zapisu
                 println!(
                     "Statystyki I/O dla urządzenia {}: Odczytów: {}, Zapisów: {}",
                     device, parts[5], parts[9]
