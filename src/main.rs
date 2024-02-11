@@ -127,11 +127,8 @@ async fn main() -> std::io::Result<()> {
             .unwrap();
     });
 
-    HttpServer::new(|| {
-        App::new()
-            .route("/system-stats", web::get().to(system_stats))
-    })
-    .bind(&config.listen_addr)?
-    .run()
-    .await
+    HttpServer::new(|| App::new().route("/system-stats", web::get().to(system_stats)))
+        .bind(&config.listen_addr)?
+        .run()
+        .await
 }
