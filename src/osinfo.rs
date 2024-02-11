@@ -13,24 +13,24 @@ struct OSInfo {
 }
 
 fn get_os_info() -> OSInfo {
-    // Nazwa dystrybucji i wersja
+    // Distribution name and version
     let os_release = fs::read_to_string("/etc/os-release").unwrap();
     let os_name = os_release
         .lines()
         .find(|line| line.starts_with("PRETTY_NAME"))
         .and_then(|line| line.split_once("="))
         .map(|(_, value)| value.trim_matches('"'))
-        .unwrap_or("Nieznany system");
+        .unwrap_or("Unknown system");
 
-    // Wersja jądra
+    // Kernel version
     let kernel_version = fs::read_to_string("/proc/version")
         .unwrap()
         .split_whitespace()
         .nth(2)
-        .unwrap_or("Nieznana wersja jądra")
+        .unwrap_or("Unknown kernel version")
         .to_string();
 
-    // Czas startu systemu
+    // System start-up time
     let uptime_seconds = fs::read_to_string("/proc/uptime")
         .unwrap()
         .split_whitespace()
@@ -40,14 +40,14 @@ fn get_os_info() -> OSInfo {
         .unwrap();
     let start_time = chrono::Utc::now() - chrono::Duration::seconds(uptime_seconds as i64);
 
-    // Liczba rdzeni CPU
+    // Number of CPU cores
     let cpu_info = fs::read_to_string("/proc/cpuinfo").unwrap();
     let cpu_cores = cpu_info
         .lines()
         .filter(|line| line.starts_with("processor"))
         .count();
 
-    // Nazwa procesora
+    // Processor name
     let cpu_name = cpu_info
         .lines()
         .find(|line| line.starts_with("model name"))
@@ -55,7 +55,7 @@ fn get_os_info() -> OSInfo {
         .map(|(_, value)| value.trim())
         .unwrap_or("Nieznany procesor");
 
-    // Nazwa hosta
+    // Hostname
     let hostname = fs::read_to_string("/etc/hostname")
         .unwrap()
         .trim()
@@ -78,12 +78,6 @@ fn get_os_info() -> OSInfo {
     osinfo.hostname = hostname;
 
     return osinfo;
-
-    // println!("System: {}", os_name);
-    // println!("Wersja jądra: {}", kernel_version);
-    // println!("Czas startu systemu: {}", start_time.to_rfc3339());
-    // println!("Liczba rdzeni CPU: {}", cpu_cores);
-    // println!("Nazwa procesora: {}", cpu_name);
 }
 
 pub fn save_os_info_to_db(db_file_name: &String) {
@@ -101,12 +95,12 @@ pub fn save_os_info_to_db(db_file_name: &String) {
 
 pub fn show_os_info() {
     let os_info = get_os_info();
-    println!("Nazwa hosta: {}", os_info.hostname);
+    println!("Hostname: {}", os_info.hostname);
     println!("System: {}", os_info.os_name);
-    println!("Wersja jądra: {}", os_info.kernel_version);
-    println!("Czas startu systemu: {}", os_info.start_time);
-    println!("Liczba rdzeni CPU: {}", os_info.cpu_cores);
-    println!("Nazwa procesora: {}", os_info.cpu_name);
+    println!("Kernel version: {}", os_info.kernel_version);
+    println!("System start-up time {}", os_info.start_time);
+    println!("Number of CPU cores: {}", os_info.cpu_cores);
+    println!("Processor name: {}", os_info.cpu_name);
 }
 
 pub fn show_and_save_os_info_to_db(db_file_name: &String) {

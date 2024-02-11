@@ -7,18 +7,15 @@ pub fn print_disk_io_stats(device: &str) {
         for line in diskstats.lines() {
             let parts: Vec<&str> = line.split_whitespace().collect();
             if parts.len() > 3 && parts[2] == device {
-                // Zakładając, że parts[2] to nazwa urządzenia
-                // parts[5] - liczba wykonanych operacji odczytu
-                // parts[9] - liczba wykonanych operacji zapisu
                 println!(
-                    "Statystyki I/O dla urządzenia {}: Odczytów: {}, Zapisów: {}",
+                    "I/O statistics for the device {}: Reads: {}, Writes: {}",
                     device, parts[5], parts[9]
                 );
                 break;
             }
         }
     } else {
-        println!("Nie można odczytać /proc/diskstats");
+        println!("Cannot be read /proc/diskstats");
     }
 }
 
@@ -26,12 +23,12 @@ pub fn print_all_disk_io_stats() {
     let diskstats = match fs::read_to_string("/proc/diskstats") {
         Ok(content) => content,
         Err(e) => {
-            println!("Nie można odczytać /proc/diskstats: {}", e);
+            println!("Cannot be read /proc/diskstats: {}", e);
             return;
         }
     };
 
-    println!("Statystyki I/O dla wszystkich urządzeń:");
+    println!("I/O statistics for all devices:");
     for line in diskstats.lines() {
         let parts: Vec<&str> = line.split_whitespace().collect();
         if parts.len() > 13 {
@@ -42,8 +39,10 @@ pub fn print_all_disk_io_stats() {
             let read_time_ms = parts[12]; // Czas spędzony na odczycie
             let write_time_ms = parts[14]; // Czas spędzony na zapisie
 
-            println!("Urządzenie: {}, Odczytów: {}, Zapisów: {}, Czas odczytu: {} ms, Czas zapisu: {} ms",
-                     device, read_ops, write_ops, read_time_ms, write_time_ms);
+            println!(
+                "Device: {}, Reads: {}, Writes: {}, Read time: {} ms, Write time: {} ms",
+                device, read_ops, write_ops, read_time_ms, write_time_ms
+            );
         }
     }
 }
@@ -62,7 +61,7 @@ pub fn get_physical_disk_io_stats() -> Vec<DiskInfo> {
     let diskstats = match fs::read_to_string("/proc/diskstats") {
         Ok(content) => content,
         Err(e) => {
-            println!("Nie można odczytać /proc/diskstats: {}", e);
+            println!("Cannot be read /proc/diskstats: {}", e);
             return disks_info_list;
         }
     };
@@ -72,7 +71,7 @@ pub fn get_physical_disk_io_stats() -> Vec<DiskInfo> {
         if parts.len() > 13 {
             let device = parts[2];
 
-            // Sprawdź, czy nazwa urządzenia pasuje do fizycznego dysku (ignoruj partycje)
+            // Check that the device name matches the physical drive (ignore partitions)
             if Regex::new("^sd[a-z]$").unwrap().is_match(device)
                 || Regex::new("^hd[a-z]$").unwrap().is_match(device)
                 || Regex::new("^nvme[0-9]n[0-1]$").unwrap().is_match(device)
@@ -99,12 +98,12 @@ pub fn print_physical_disk_io_stats() {
     let diskstats = match fs::read_to_string("/proc/diskstats") {
         Ok(content) => content,
         Err(e) => {
-            println!("Nie można odczytać /proc/diskstats: {}", e);
+            println!("Cannot be read /proc/diskstats: {}", e);
             return;
         }
     };
 
-    println!("Statystyki I/O dla fizycznych dysków:");
+    println!("I/O statistics for physical disks:");
     for line in diskstats.lines() {
         let parts: Vec<&str> = line.split_whitespace().collect();
         if parts.len() > 13 {
@@ -120,8 +119,10 @@ pub fn print_physical_disk_io_stats() {
                 let read_time_ms = parts[12]; // Czas spędzony na odczycie
                 let write_time_ms = parts[14]; // Czas spędzony na zapisie
 
-                println!("Urządzenie: {}, Odczytów: {}, Zapisów: {}, Czas odczytu: {} ms, Czas zapisu: {} ms",
-                         device, read_ops, write_ops, read_time_ms, write_time_ms);
+                println!(
+                    "Device: {}, Reads: {}, Writes: {}, Read time: {} ms, Write time: {} ms",
+                    device, read_ops, write_ops, read_time_ms, write_time_ms
+                );
             }
         }
     }
