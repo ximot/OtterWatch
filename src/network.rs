@@ -5,14 +5,14 @@ pub fn print_network_io_stats(exclude_interfaces: Vec<String>) {
     let content = match fs::read_to_string("/proc/net/dev") {
         Ok(c) => c,
         Err(e) => {
-            eprintln!("Nie można odczytać /proc/net/dev: {}", e);
+            eprintln!("Cannot be read /proc/net/dev: {}", e);
             return;
         }
     };
 
-    println!("Statystyki sieciowe:");
+    println!("Network statistics:");
     for line in content.lines().skip(2) {
-        // Pomijamy pierwsze dwie linie nagłówków
+        // We skip the first two header lines
         let parts: Vec<&str> = line.split_whitespace().collect();
         let interface = parts[0].trim_end_matches(':'); // Nazwa interfejsu
 
@@ -21,7 +21,7 @@ pub fn print_network_io_stats(exclude_interfaces: Vec<String>) {
             let bytes_transmitted = parts[9]; // Bajty wysłane
 
             println!(
-                "Interfejs: {}, Odebrane bajty: {}, Wysłane bajty: {}",
+                "Interface: {}, Received bytes: {}, Sent bytes: {}",
                 interface, bytes_received, bytes_transmitted
             );
         }
@@ -33,12 +33,12 @@ pub fn get_network_io_stats(exclude_interfaces: Vec<String>) -> Vec<NetworkInter
     let content = match fs::read_to_string("/proc/net/dev") {
         Ok(c) => c,
         Err(e) => {
-            eprintln!("Nie można odczytać /proc/net/dev: {}", e);
+            eprintln!("Cannot be read /proc/net/dev: {}", e);
             return network_list;
         }
     };
     for line in content.lines().skip(2) {
-        // Pomijamy pierwsze dwie linie nagłówków
+        // We skip the first two header lines
         let parts: Vec<&str> = line.split_whitespace().collect();
         let interface = parts[0].trim_end_matches(':'); // Nazwa interfejsu
 
