@@ -19,6 +19,10 @@ pub async fn read_cpu_stats() -> (f64, f64) {
 }
 
 fn read_cpu_usage() -> (u64, u64, u64) {
+    // DEBUG TIME
+    use std::time::Instant;
+    let now = Instant::now();
+
     let content = fs::read_to_string("/proc/stat").unwrap();
     let line = content.lines().next().unwrap();
     let values: Vec<&str> = line.split_whitespace().collect();
@@ -28,5 +32,8 @@ fn read_cpu_usage() -> (u64, u64, u64) {
     let idle: u64 = values[4].parse().unwrap();
     let iowait: u64 = values[5].parse().unwrap();
     let total = user + nice + system + idle;
+
+    let elapsed = now.elapsed();
+    //println!("TIME CPU READ USAGE: {:.2?}", elapsed);
     (total, idle, iowait)
 }

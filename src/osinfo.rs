@@ -81,6 +81,10 @@ fn get_os_info() -> OSInfo {
 }
 
 pub fn save_os_info_to_db(db_file_name: &String) {
+    // DEBUG TIME
+    use std::time::Instant;
+    let now = Instant::now();
+
     let conn = Connection::open(db_file_name).expect("DB connection failed!");
 
     let os_info = get_os_info();
@@ -91,6 +95,8 @@ pub fn save_os_info_to_db(db_file_name: &String) {
     ).expect("Failed to insert stats");
 
     conn.close().unwrap();
+    let elapsed = now.elapsed();
+    println!("TIME GET SYS INFO: {:.2?}", elapsed);
 }
 
 pub fn show_os_info() {
@@ -101,6 +107,12 @@ pub fn show_os_info() {
     println!("System start-up time {}", os_info.start_time);
     println!("Number of CPU cores: {}", os_info.cpu_cores);
     println!("Processor name: {}", os_info.cpu_name);
+}
+
+pub fn get_os_info_api() -> serde_json::Result<String> {
+    let os_info = get_os_info();
+    let a = serde_json::to_string(&os_info);
+    return a;
 }
 
 pub fn show_and_save_os_info_to_db(db_file_name: &String) {

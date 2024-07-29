@@ -57,6 +57,10 @@ pub struct DiskInfo {
 }
 
 pub fn get_physical_disk_io_stats() -> Vec<DiskInfo> {
+    // DEBUG TIME
+    use std::time::Instant;
+    let now = Instant::now();
+
     let mut disks_info_list = Vec::new();
     let diskstats = match fs::read_to_string("/proc/diskstats") {
         Ok(content) => content,
@@ -91,6 +95,8 @@ pub fn get_physical_disk_io_stats() -> Vec<DiskInfo> {
             }
         }
     }
+    let elapsed = now.elapsed();
+    //println!("TIME READ DISK IO: {:.2?}", elapsed);
     return disks_info_list;
 }
 
@@ -103,7 +109,7 @@ pub fn print_physical_disk_io_stats() {
         }
     };
 
-    println!("I/O statistics for physical disks:");
+    //println!("I/O statistics for physical disks:");
     for line in diskstats.lines() {
         let parts: Vec<&str> = line.split_whitespace().collect();
         if parts.len() > 13 {
@@ -119,10 +125,10 @@ pub fn print_physical_disk_io_stats() {
                 let read_time_ms = parts[12]; // Czas spędzony na odczycie
                 let write_time_ms = parts[14]; // Czas spędzony na zapisie
 
-                println!(
-                    "Device: {}, Reads: {}, Writes: {}, Read time: {} ms, Write time: {} ms",
-                    device, read_ops, write_ops, read_time_ms, write_time_ms
-                );
+                // println!(
+                //     "Device: {}, Reads: {}, Writes: {}, Read time: {} ms, Write time: {} ms",
+                //     device, read_ops, write_ops, read_time_ms, write_time_ms
+                // );
             }
         }
     }

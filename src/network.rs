@@ -10,7 +10,7 @@ pub fn print_network_io_stats(exclude_interfaces: Vec<String>) {
         }
     };
 
-    println!("Network statistics:");
+    // println!("Network statistics:");
     for line in content.lines().skip(2) {
         // We skip the first two header lines
         let parts: Vec<&str> = line.split_whitespace().collect();
@@ -20,15 +20,19 @@ pub fn print_network_io_stats(exclude_interfaces: Vec<String>) {
             let bytes_received = parts[1]; // Bajty otrzymane
             let bytes_transmitted = parts[9]; // Bajty wysłane
 
-            println!(
-                "Interface: {}, Received bytes: {}, Sent bytes: {}",
-                interface, bytes_received, bytes_transmitted
-            );
+            // println!(
+            //     "Interface: {}, Received bytes: {}, Sent bytes: {}",
+            //     interface, bytes_received, bytes_transmitted
+            // );
         }
     }
 }
 
 pub fn get_network_io_stats(exclude_interfaces: Vec<String>) -> Vec<NetworkInterface> {
+    // DEBUG TIME
+    use std::time::Instant;
+    let now = Instant::now();
+
     let mut network_list = Vec::new();
     let content = match fs::read_to_string("/proc/net/dev") {
         Ok(c) => c,
@@ -53,7 +57,8 @@ pub fn get_network_io_stats(exclude_interfaces: Vec<String>) -> Vec<NetworkInter
             })
         }
     }
-
+    let elapsed = now.elapsed();
+    //println!("TIME READ NETWORK: {:.2?}", elapsed);
     network_list
 }
 

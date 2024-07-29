@@ -1,0 +1,6 @@
+interval_secs = 1
+listen_addr = "0.0.0.0:8080"
+db_file_name = "system_stats.db"
+db_save = true
+db_history_days = 31
+exclude_interfaces = "lo,wlan0"
