@@ -1,2 +1,6 @@
 /target
 /system_stats.db
+/www-app/node_modules/
+/static/
+/www-app/build/
+/www-app/public/
