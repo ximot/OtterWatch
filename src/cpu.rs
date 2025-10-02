@@ -2,38 +2,53 @@ use std::fs;
 use std::time::Duration;
 
 pub async fn read_cpu_stats() -> (f64, f64) {
-    let (total1, idle1, iowait1) = read_cpu_usage();
+    let (total1, idle1, iowait1) = match read_cpu_usage() {
+        Some(times) => times,
+        None => return (0.0, 0.0),
+    };
+
     tokio::time::sleep(Duration::from_secs(1)).await;
-    let (total2, idle2, iowait2) = read_cpu_usage();
 
-    let total_diff = total2 - total1;
-    let idle_diff = idle2 - idle1;
-    let total_diff_with_io = (total2 + iowait2) - (total1 + iowait1);
+    let (total2, idle2, iowait2) = match read_cpu_usage() {
+        Some(times) => times,
+        None => return (0.0, 0.0),
+    };
 
-    let iowait_diff = iowait2 - iowait1;
+    let total_diff = total2.saturating_sub(total1);
+    if total_diff == 0 {
+        return (0.0, 0.0);
+    }
 
-    (
-        100f64 * (total_diff - idle_diff) as f64 / total_diff as f64,
-        100f64 * (iowait_diff) as f64 / total_diff_with_io as f64,
-    )
+    let idle_diff = idle2.saturating_sub(idle1);
+    let iowait_diff = iowait2.saturating_sub(iowait1);
+
+    let cpu_usage = 100.0 * (total_diff.saturating_sub(idle_diff)) as f64 / total_diff as f64;
+    let io_wait = 100.0 * iowait_diff as f64 / total_diff as f64;
+
+    (cpu_usage.clamp(0.0, 100.0), io_wait.clamp(0.0, 100.0))
 }
 
-fn read_cpu_usage() -> (u64, u64, u64) {
-    // DEBUG TIME
-    use std::time::Instant;
-    let now = Instant::now();
+fn read_cpu_usage() -> Option<(u64, u64, u64)> {
+    let content = fs::read_to_string("/proc/stat").ok()?;
+    let line = content.lines().next()?;
 
-    let content = fs::read_to_string("/proc/stat").unwrap();
-    let line = content.lines().next().unwrap();
-    let values: Vec<&str> = line.split_whitespace().collect();
-    let user: u64 = values[1].parse().unwrap();
-    let nice: u64 = values[2].parse().unwrap();
-    let system: u64 = values[3].parse().unwrap();
-    let idle: u64 = values[4].parse().unwrap();
-    let iowait: u64 = values[5].parse().unwrap();
-    let total = user + nice + system + idle;
+    let mut total: u64 = 0;
+    let mut idle: u64 = 0;
+    let mut iowait: u64 = 0;
 
-    let elapsed = now.elapsed();
-    //println!("TIME CPU READ USAGE: {:.2?}", elapsed);
-    (total, idle, iowait)
+    for (idx, token) in line.split_whitespace().skip(1).enumerate() {
+        let value: u64 = token.parse().ok()?;
+        total = total.saturating_add(value);
+        match idx {
+            3 => idle = value,
+            4 => iowait = value,
+            _ => {}
+        }
+    }
+
+    if total == 0 {
+        return None;
+    }
+
+    Some((total, idle, iowait))
 }

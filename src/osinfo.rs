@@ -1,3 +1,4 @@
+use log::warn;
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -14,7 +15,10 @@ struct OSInfo {
 
 fn get_os_info() -> OSInfo {
     // Distribution name and version
-    let os_release = fs::read_to_string("/etc/os-release").unwrap();
+    let os_release = fs::read_to_string("/etc/os-release").unwrap_or_else(|err| {
+        warn!("Unable to read /etc/os-release: {}", err);
+        String::new()
+    });
     let os_name = os_release
         .lines()
         .find(|line| line.starts_with("PRETTY_NAME"))
@@ -24,7 +28,10 @@ fn get_os_info() -> OSInfo {
 
     // Kernel version
     let kernel_version = fs::read_to_string("/proc/version")
-        .unwrap()
+        .unwrap_or_else(|err| {
+            warn!("Unable to read /proc/version: {}", err);
+            String::new()
+        })
         .split_whitespace()
         .nth(2)
         .unwrap_or("Unknown kernel version")
@@ -32,16 +39,17 @@ fn get_os_info() -> OSInfo {
 
     // System start-up time
     let uptime_seconds = fs::read_to_string("/proc/uptime")
-        .unwrap()
-        .split_whitespace()
-        .next()
-        .unwrap()
-        .parse::<f64>()
-        .unwrap();
+        .ok()
+        .and_then(|content| content.split_whitespace().next().map(str::to_owned))
+        .and_then(|value| value.parse::<f64>().ok())
+        .unwrap_or_default();
     let start_time = chrono::Utc::now() - chrono::Duration::seconds(uptime_seconds as i64);
 
     // Number of CPU cores
-    let cpu_info = fs::read_to_string("/proc/cpuinfo").unwrap();
+    let cpu_info = fs::read_to_string("/proc/cpuinfo").unwrap_or_else(|err| {
+        warn!("Unable to read /proc/cpuinfo: {}", err);
+        String::new()
+    });
     let cpu_cores = cpu_info
         .lines()
         .filter(|line| line.starts_with("processor"))
@@ -57,27 +65,21 @@ fn get_os_info() -> OSInfo {
 
     // Hostname
     let hostname = fs::read_to_string("/etc/hostname")
-        .unwrap()
+        .unwrap_or_else(|err| {
+            warn!("Unable to read /etc/hostname: {}", err);
+            String::new()
+        })
         .trim()
         .to_string();
 
-    let mut osinfo: OSInfo = OSInfo {
-        hostname: "".to_string(),
-        os_name: "".to_string(),
-        kernel_version: "".to_string(),
-        start_time: "".to_string(),
-        cpu_name: "".to_string(),
+    OSInfo {
+        hostname,
+        os_name: os_name.to_string(),
+        kernel_version,
+        start_time: start_time.to_rfc3339(),
+        cpu_name: cpu_name.to_string(),
         cpu_cores,
-    };
-
-    osinfo.os_name = os_name.parse().unwrap();
-    osinfo.kernel_version = kernel_version.parse().unwrap();
-    osinfo.start_time = start_time.to_rfc3339();
-    osinfo.cpu_name = cpu_name.parse().unwrap();
-    osinfo.cpu_cores = cpu_cores;
-    osinfo.hostname = hostname;
-
-    return osinfo;
+    }
 }
 
 pub fn save_os_info_to_db(db_file_name: &String) {
@@ -94,7 +96,9 @@ pub fn save_os_info_to_db(db_file_name: &String) {
         params![os_info.os_name, os_info.kernel_version, os_info.start_time, os_info.cpu_name, os_info.cpu_cores, os_info.hostname],
     ).expect("Failed to insert stats");
 
-    conn.close().unwrap();
+    if let Err((_, err)) = conn.close() {
+        warn!("Unable to close database connection cleanly: {}", err);
+    }
     let elapsed = now.elapsed();
     println!("TIME GET SYS INFO: {:.2?}", elapsed);
 }

@@ -1,5 +1,57 @@
+use libc;
 use std::fs::{self};
 use std::io;
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct ProcessSnapshot {
+    pub total_ticks: u64,
+    pub rss_pages: u64,
+}
+
+pub fn read_self_snapshot() -> io::Result<ProcessSnapshot> {
+    let stat_content = fs::read_to_string("/proc/self/stat")?;
+    let stats: Vec<&str> = stat_content.split_whitespace().collect();
+    if stats.len() <= 24 {
+        return Ok(ProcessSnapshot::default());
+    }
+
+    let utime: u64 = stats.get(13).and_then(|v| v.parse().ok()).unwrap_or(0);
+    let stime: u64 = stats.get(14).and_then(|v| v.parse().ok()).unwrap_or(0);
+
+    let statm_content = fs::read_to_string("/proc/self/statm")?;
+    let rss_pages = statm_content
+        .split_whitespace()
+        .nth(1)
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(0);
+
+    Ok(ProcessSnapshot {
+        total_ticks: utime.saturating_add(stime),
+        rss_pages,
+    })
+}
+
+pub fn clock_ticks_per_second() -> u64 {
+    unsafe {
+        let ticks = libc::sysconf(libc::_SC_CLK_TCK);
+        if ticks > 0 {
+            ticks as u64
+        } else {
+            100
+        }
+    }
+}
+
+pub fn page_size_bytes() -> u64 {
+    unsafe {
+        let page = libc::sysconf(libc::_SC_PAGESIZE);
+        if page > 0 {
+            page as u64
+        } else {
+            4096
+        }
+    }
+}
 
 pub fn find_top_processes() -> io::Result<()> {
     let mut cpu_usage_vec = Vec::new();

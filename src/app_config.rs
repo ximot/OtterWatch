@@ -1,7 +1,7 @@
 use crate::Settings;
 use config::{Config, File};
 
-pub fn load_config() -> rusqlite::Result<Settings, config::ConfigError> {
+pub fn load_config() -> Result<Settings, config::ConfigError> {
     let mut settings = Config::default();
     settings
         .merge(File::with_name("settings"))?

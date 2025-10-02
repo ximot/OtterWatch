@@ -1,7 +1,7 @@
 use rusqlite::Connection;
 
-pub fn init_db() -> rusqlite::Result<()> {
-    let conn = Connection::open("system_stats.db")?;
+pub fn init_db(db_path: &str) -> rusqlite::Result<()> {
+    let conn = Connection::open(db_path)?;
     conn.execute(
         "CREATE TABLE IF NOT EXISTS stats (
             id INTEGER PRIMARY KEY,
