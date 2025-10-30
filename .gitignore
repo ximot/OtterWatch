@@ -3,3 +3,5 @@
 /www-app/node_modules/
 /static/
 /www-app/build/
+/.idea/
+Cargo.lock
