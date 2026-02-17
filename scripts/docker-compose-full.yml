@@ -1,0 +1,118 @@
+version: '3.8'
+
+# Complete OtterWatch Stack
+# Includes: PostgreSQL/TimescaleDB, MQTT Broker, Server, and AI Agent
+
+services:
+  # PostgreSQL with TimescaleDB extension
+  db:
+    image: timescale/timescaledb:latest-pg16
+    container_name: otterwatch-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-otterwatch}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-otterwatch}
+      POSTGRES_DB: ${POSTGRES_DB:-otterwatch}
+    volumes:
+      - otterwatch-db-data:/var/lib/postgresql/data
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U otterwatch -d otterwatch"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - otterwatch
+
+  # OtterWatch MQTT Broker (custom)
+  mqtt:
+    image: ${REGISTRY:-localhost:5000}/otterwatch-mqtt:${VERSION:-latest}
+    container_name: otterwatch-mqtt
+    environment:
+      OTTERWATCH_MQTT_MQTT__LISTEN_ADDR: "0.0.0.0:1883"
+      OTTERWATCH_MQTT_AUTH__API_KEYS: ${MQTT_API_KEYS:-["default-api-key-change-me"]}
+      OTTERWATCH_MQTT_AUTH__REQUIRE_AUTH: "true"
+      OTTERWATCH_MQTT_METRICS__ENABLED: "true"
+      OTTERWATCH_MQTT_API__LISTEN_ADDR: "0.0.0.0:8085"
+      RUST_LOG: ${MQTT_LOG_LEVEL:-info}
+    volumes:
+      - otterwatch-mqtt-data:/app/data
+    ports:
+      - "${MQTT_PORT:-1883}:1883"      # MQTT
+      - "${MQTT_API_PORT:-8085}:8085"  # Management API
+      - "${MQTT_METRICS_PORT:-9090}:9090" # Prometheus metrics
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8085/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - otterwatch
+
+  # OtterWatch Central Server
+  server:
+    image: ${REGISTRY:-localhost:5000}/otterwatch-server:${VERSION:-latest}
+    container_name: otterwatch-server
+    environment:
+      OTTERWATCH_DATABASE_URL: postgres://${POSTGRES_USER:-otterwatch}:${POSTGRES_PASSWORD:-otterwatch}@db:5432/${POSTGRES_DB:-otterwatch}
+      OTTERWATCH_HTTP_LISTEN_ADDR: "0.0.0.0:8080"
+      OTTERWATCH_MQTT_BROKER_ADDR: "tcp://mqtt:1883"
+      OTTERWATCH_MQTT_CLIENT_ID: otterwatch-server
+      OTTERWATCH_MQTT_TOPIC_PREFIX: otterwatch/metrics
+      OTTERWATCH_API_KEYS: ${API_KEYS:-default-api-key-change-me}
+      OTTERWATCH_PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8080}
+      OTTERWATCH_UPDATES_DIR: /app/updates
+      RUST_LOG: ${SERVER_LOG_LEVEL:-info}
+    volumes:
+      - otterwatch-updates:/app/updates
+    ports:
+      - "${SERVER_PORT:-8080}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+      mqtt:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - otterwatch
+
+  # OtterWatch AI Agent (optional)
+  # Uncomment when otterwatch-ai Dockerfile is ready
+  # ai:
+  #   image: ${REGISTRY:-localhost:5000}/otterwatch-ai:${VERSION:-latest}
+  #   container_name: otterwatch-ai
+  #   environment:
+  #     OTTERWATCH_AI_DATABASE_URL: postgres://${POSTGRES_USER:-otterwatch}:${POSTGRES_PASSWORD:-otterwatch}@db:5432/${POSTGRES_DB:-otterwatch}
+  #     OTTERWATCH_AI_MQTT_BROKER_ADDR: "tcp://mqtt:1883"
+  #     OTTERWATCH_AI_MQTT_API_KEY: ${API_KEYS:-default-api-key-change-me}
+  #     OTTERWATCH_AI_OLLAMA_BASE_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+  #     RUST_LOG: ${AI_LOG_LEVEL:-info}
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #     mqtt:
+  #       condition: service_healthy
+  #   restart: unless-stopped
+  #   networks:
+  #     - otterwatch
+
+volumes:
+  otterwatch-db-data:
+    name: otterwatch-db-data
+  otterwatch-mqtt-data:
+    name: otterwatch-mqtt-data
+  otterwatch-updates:
+    name: otterwatch-updates
+
+networks:
+  otterwatch:
+    name: otterwatch-network
+    driver: bridge

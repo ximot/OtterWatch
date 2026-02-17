@@ -1,10 +1,11 @@
 use crate::Settings;
-use config::{Config, File};
+use config::{Config, Environment, File};
 
 pub fn load_config() -> Result<Settings, config::ConfigError> {
-    let mut settings = Config::default();
-    settings
-        .merge(File::with_name("settings"))?
-        .merge(config::Environment::with_prefix("APP"))?;
-    settings.try_into()
+    let config = Config::builder()
+        .add_source(File::with_name("settings"))
+        .add_source(Environment::with_prefix("APP"))
+        .build()?;
+
+    config.try_deserialize()
 }

@@ -1,0 +1,314 @@
+syntax = "proto3";
+package otterwatch.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Agent registration and identification
+message AgentInfo {
+    string agent_id = 1;          // UUID v4, generated on first run
+    string hostname = 2;
+    string os_name = 3;
+    string kernel_version = 4;
+    string agent_version = 5;
+    uint32 cpu_cores = 6;
+    string cpu_name = 7;
+    string agent_group = 8;       // Optional group for categorization (e.g., "web-servers", "databases")
+    bool is_root = 9;             // True if agent is running as root (uid 0)
+    uint32 queue_pending_count = 10;   // Number of messages waiting in offline queue
+    uint64 queue_pending_bytes = 11;   // Size of pending queue in bytes
+}
+
+// Core metrics snapshot - sent periodically
+message MetricsSnapshot {
+    google.protobuf.Timestamp timestamp = 1;
+    string agent_id = 2;
+
+    // CPU metrics
+    double cpu_usage_percent = 10;
+    double cpu_io_wait_percent = 11;
+
+    // Memory metrics (in KiB)
+    uint64 memory_used_kib = 20;
+    uint64 memory_available_kib = 21;
+    uint64 memory_total_kib = 22;
+    uint64 swap_free_kib = 23;
+    uint64 swap_total_kib = 24;
+
+    // Per-disk I/O metrics
+    repeated DiskMetrics disks = 30;
+
+    // Per-interface network metrics
+    repeated NetworkMetrics network = 40;
+
+    // PSI pressure (optional, Linux 4.20+)
+    optional PressureMetrics pressure = 50;
+
+    // Queue sync status (messages pending to be sent from offline queue)
+    uint32 queue_pending_count = 60;   // Number of messages waiting in offline queue
+    uint64 queue_pending_bytes = 61;   // Size of pending queue in bytes
+}
+
+message DiskMetrics {
+    string device = 1;
+    uint64 read_ops = 2;
+    uint64 write_ops = 3;
+    uint64 read_time_ms = 4;
+    uint64 write_time_ms = 5;
+}
+
+message NetworkMetrics {
+    string interface_name = 1;
+    uint64 bytes_received = 2;
+    uint64 bytes_transmitted = 3;
+}
+
+message PressureMetrics {
+    optional PressureEntry cpu = 1;
+    optional PressureEntry memory = 2;
+    optional PressureEntry io = 3;
+}
+
+message PressureEntry {
+    optional PressureAverages some = 1;
+    optional PressureAverages full = 2;
+}
+
+message PressureAverages {
+    double avg10 = 1;
+    double avg60 = 2;
+    double avg300 = 3;
+    uint64 total = 4;
+}
+
+// Wrapper for all messages with authentication
+message AuthenticatedMessage {
+    string api_key = 1;
+    oneof payload {
+        AgentInfo agent_info = 10;
+        MetricsSnapshot metrics = 11;
+        ProcessList process_list = 12;
+        ServiceMetricsList service_metrics = 13;
+    }
+}
+
+// Process information - top N processes by CPU/memory
+message ProcessInfo {
+    uint32 pid = 1;
+    string name = 2;               // Process name (comm)
+    string state = 3;              // R=running, S=sleeping, D=disk sleep, Z=zombie, etc.
+    uint32 ppid = 4;               // Parent PID
+    double cpu_percent = 5;        // CPU usage percentage
+    uint64 memory_rss_kib = 6;     // Resident Set Size in KiB
+    uint64 memory_vsz_kib = 7;     // Virtual memory size in KiB
+    uint64 threads = 8;            // Number of threads
+    string user = 9;               // Username (or UID if unavailable)
+    string cmdline = 10;           // Full command line
+    uint64 start_time = 11;        // Process start time (jiffies since boot)
+}
+
+// List of processes - sent periodically (less frequently than metrics)
+message ProcessList {
+    google.protobuf.Timestamp timestamp = 1;
+    string agent_id = 2;
+    repeated ProcessInfo processes = 3;
+}
+
+// Agent status for Last Will and Testament (LWT)
+message AgentStatus {
+    string agent_id = 1;
+    bool online = 2;
+    google.protobuf.Timestamp timestamp = 3;
+}
+
+// ============================================
+// Remote Command System (Server -> Agent)
+// ============================================
+
+// Command types
+enum CommandType {
+    COMMAND_TYPE_UNSPECIFIED = 0;
+    COMMAND_TYPE_RELOAD_CONFIG = 1;    // Reload settings.toml
+    COMMAND_TYPE_RESTART = 2;          // Restart agent process
+    COMMAND_TYPE_SET_GROUP = 3;        // Change agent group
+    COMMAND_TYPE_UPDATE = 4;           // Download and install update
+    COMMAND_TYPE_PING = 5;             // Health check
+    COMMAND_TYPE_GET_CONFIG = 6;       // Request agent configuration
+    COMMAND_TYPE_GET_SWAP_PROCESSES = 7; // Get processes using swap
+    COMMAND_TYPE_SET_CONFIG = 8;       // Set single config parameter
+    COMMAND_TYPE_SYNC_CONFIG = 9;      // Sync config with schema (add missing params)
+    COMMAND_TYPE_GET_CONFIG_SCHEMA = 10; // Get full config schema with metadata
+    COMMAND_TYPE_RECONNECT = 11;       // Reconnect to MQTT broker (re-run bootstrap)
+}
+
+// Command sent from server to agent
+message Command {
+    string command_id = 1;             // UUID for tracking
+    CommandType command_type = 2;
+    google.protobuf.Timestamp timestamp = 3;
+
+    // Optional parameters depending on command type
+    string set_group_value = 10;       // For SET_GROUP command
+    string update_url = 11;            // For UPDATE command (binary download URL)
+    string update_checksum = 12;       // SHA256 checksum for UPDATE
+
+    // Config management parameters (for SET_CONFIG command)
+    string config_key = 20;            // Configuration key (e.g., "interval_secs")
+    string config_value = 21;          // New value as string
+}
+
+// Response from agent to server
+message CommandResponse {
+    string command_id = 1;             // Matches Command.command_id
+    string agent_id = 2;
+    bool success = 3;
+    string message = 4;                // Human-readable status/error message
+    google.protobuf.Timestamp timestamp = 5;
+
+    // Optional payload for responses that return data
+    optional AgentConfig config = 10;  // For GET_CONFIG response
+    optional SwapProcessList swap_processes = 11; // For GET_SWAP_PROCESSES response
+    optional ConfigSchema config_schema = 12;     // For GET_CONFIG_SCHEMA response
+    optional string sync_report = 13;             // For SYNC_CONFIG response (list of added params)
+}
+
+// Process using swap memory
+message SwapProcessInfo {
+    uint32 pid = 1;
+    string name = 2;                   // Process name (comm)
+    uint64 swap_kib = 3;               // Swap usage in KiB
+    string cmdline = 4;                // Full command line (if available)
+    string user = 5;                   // Username (if available)
+}
+
+// List of processes using swap
+message SwapProcessList {
+    google.protobuf.Timestamp timestamp = 1;
+    repeated SwapProcessInfo processes = 2;
+    uint64 total_swap_kib = 3;         // Total swap used by listed processes
+}
+
+// Agent configuration snapshot (for GET_CONFIG command response)
+message AgentConfig {
+    // Collection settings
+    uint64 interval_secs = 1;
+    uint64 process_list_interval_secs = 2;
+    uint32 process_top_n = 3;
+
+    // Network settings
+    string listen_addr = 10;
+    string mqtt_broker_addr = 11;
+    string mqtt_topic_prefix = 12;
+    bool mqtt_enabled = 13;
+
+    // MQTT Bootstrap settings
+    string mqtt_bootstrap_url = 14;
+    uint64 mqtt_bootstrap_timeout_secs = 15;
+
+    // Storage settings
+    string db_file_name = 20;
+    bool db_save = 21;
+    uint64 db_history_days = 22;
+
+    // Agent identity
+    string agent_group = 30;
+    string exclude_interfaces = 31;
+
+    // Runtime info
+    string config_path = 40;          // Path to settings.toml
+    string data_directory = 41;       // Resolved data directory
+
+    // Plugin settings
+    uint64 plugin_interval_secs = 50;
+    bool plugins_collect_process_details = 51;
+    bool plugins_nginx_enabled = 52;
+    string plugins_nginx_service_name = 53;
+    bool plugins_tomcat_enabled = 54;
+    string plugins_tomcat_service_name = 55;
+    bool plugins_self_monitor_enabled = 56;
+    bool plugins_self_monitor_collect_open_fds = 57;
+    bool plugins_self_monitor_collect_io_stats = 58;
+}
+
+// ============================================
+// Service Monitoring Plugin System
+// ============================================
+
+// Individual process info within a service
+message ServiceProcessInfo {
+    uint32 pid = 1;
+    string name = 2;
+    double cpu_percent = 3;
+    uint64 memory_bytes = 4;
+    uint64 threads = 5;
+}
+
+// Metrics for a single monitored service (nginx, tomcat, etc.)
+message ServiceMetrics {
+    string service_name = 1;          // e.g., "nginx", "tomcat", "otterwatch"
+    string plugin_type = 2;           // Plugin that collected this data
+    bool is_running = 3;
+
+    // CPU metrics (from cgroup or aggregated from processes)
+    uint64 cpu_usage_usec = 10;       // Total CPU time in microseconds
+    double cpu_percent = 11;          // CPU usage percentage (delta-based)
+    uint64 cpu_user_usec = 12;        // User-space CPU time
+    uint64 cpu_system_usec = 13;      // Kernel-space CPU time
+
+    // Memory metrics
+    uint64 memory_current_bytes = 20; // Current memory usage
+    uint64 memory_swap_bytes = 21;    // Swap usage
+    uint64 memory_anon_bytes = 22;    // Anonymous memory (heap, stack)
+    uint64 memory_file_bytes = 23;    // File-backed memory (cache)
+
+    // Disk I/O metrics
+    uint64 disk_read_bytes = 30;      // Bytes read from disk
+    uint64 disk_write_bytes = 31;     // Bytes written to disk
+    uint64 disk_read_ops = 32;        // Read operations count
+    uint64 disk_write_ops = 33;       // Write operations count
+
+    // Network I/O metrics (if available)
+    uint64 net_rx_bytes = 40;         // Bytes received
+    uint64 net_tx_bytes = 41;         // Bytes transmitted
+
+    // Process/thread counts
+    uint32 process_count = 50;        // Number of processes in service
+    uint64 thread_count = 51;         // Total threads across all processes
+
+    // Data source info
+    optional uint32 cgroup_version = 60; // 1 or 2 if using cgroup
+    uint32 data_source = 61;          // 0=unknown, 1=cgroupv2, 2=cgroupv1, 3=procfs
+
+    // Per-process details (optional, for detailed view)
+    repeated ServiceProcessInfo processes = 70;
+}
+
+// List of service metrics - sent periodically by plugin system
+message ServiceMetricsList {
+    google.protobuf.Timestamp timestamp = 1;
+    string agent_id = 2;
+    repeated ServiceMetrics services = 3;
+}
+
+// ============================================
+// Configuration Management System
+// ============================================
+
+// Single configuration parameter with metadata
+message ConfigParameter {
+    string key = 1;                    // Parameter key (e.g., "interval_secs", "plugins.nginx.enabled")
+    string value = 2;                  // Current value as string
+    string param_type = 3;             // "int", "bool", "string", "float"
+    string description = 4;            // Human-readable description
+    optional string default_value = 5; // Default value
+    optional string min_value = 6;     // Minimum value (for numeric types)
+    optional string max_value = 7;     // Maximum value (for numeric types)
+    bool is_new = 8;                   // True if parameter was added in recent version
+    string added_in_version = 9;       // Version when parameter was added
+}
+
+// Configuration schema - response to get-config-schema command
+message ConfigSchema {
+    repeated ConfigParameter parameters = 1;
+    string agent_version = 2;          // Current agent version
+    string config_version = 3;         // Schema version
+}

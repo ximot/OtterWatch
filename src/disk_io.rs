@@ -8,13 +8,13 @@ static PHYSICAL_DISK_PATTERN: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"^(sd[a-z]+|hd[a-z]+|nvme\d+n\d+)$").expect("valid physical disk filter pattern")
 });
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct DiskInfo {
-    pub devices: String,
-    pub read_ops: String,
-    pub write_ops: String,
-    pub read_time_ms: String,
-    pub write_time_ms: String,
+    pub device: String,
+    pub read_ops: u64,
+    pub write_ops: u64,
+    pub read_time_ms: u64,
+    pub write_time_ms: u64,
 }
 
 pub fn get_physical_disk_io_stats() -> Vec<DiskInfo> {
@@ -34,14 +34,33 @@ pub fn get_physical_disk_io_stats() -> Vec<DiskInfo> {
             continue;
         }
 
-        let device = parts[2];
+        let Some(device) = parts.get(2) else {
+            continue;
+        };
         if PHYSICAL_DISK_PATTERN.is_match(device) {
+            let read_ops = parts
+                .get(3)
+                .and_then(|value| value.parse::<u64>().ok())
+                .unwrap_or(0);
+            let write_ops = parts
+                .get(7)
+                .and_then(|value| value.parse::<u64>().ok())
+                .unwrap_or(0);
+            let read_time_ms = parts
+                .get(6)
+                .and_then(|value| value.parse::<u64>().ok())
+                .unwrap_or(0);
+            let write_time_ms = parts
+                .get(10)
+                .and_then(|value| value.parse::<u64>().ok())
+                .unwrap_or(0);
+
             disks_info_list.push(DiskInfo {
-                devices: device.to_string(),
-                read_ops: parts.get(5).unwrap_or(&"0").to_string(),
-                write_ops: parts.get(9).unwrap_or(&"0").to_string(),
-                read_time_ms: parts.get(12).unwrap_or(&"0").to_string(),
-                write_time_ms: parts.get(14).unwrap_or(&"0").to_string(),
+                device: device.to_string(),
+                read_ops,
+                write_ops,
+                read_time_ms,
+                write_time_ms,
             });
         }
     }

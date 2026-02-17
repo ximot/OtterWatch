@@ -1,7 +1,33 @@
 /target
 /system_stats.db
+/system_stats.sqlite.bak
 /www-app/node_modules/
 /static/
 /www-app/build/
 /.idea/
 Cargo.lock
+
+# Build output
+/dist/
+
+# Config backups
+*.toml.bak
+settings.toml
+
+# Runtime data
+/mqtt_queue/
+*.log
+
+# Load test data
+/load-test/
+
+# AI agent files
+CLAUDE.md
+/.claude/
+/.serena/
+
+# Accidentally added server artifacts
+/root@*/
+
+# Compiled binaries
+/pkg/

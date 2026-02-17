@@ -34,8 +34,20 @@ pub fn read_memory_info() -> (u64, u64, u64, u64, u64) {
     (mem_total, mem_free, mem_aval, swap_total, swap_free)
 }
 
-pub fn read_process_swap_usage_with_names() -> io::Result<()> {
-    let mut swap_usage_per_process = Vec::new();
+/// Information about a process using swap memory
+#[derive(Debug, Clone)]
+pub struct SwapProcessInfo {
+    pub pid: u32,
+    pub name: String,
+    pub swap_kib: u64,
+    pub cmdline: String,
+    pub user: String,
+}
+
+/// Reads all processes using swap and returns them sorted by swap usage (descending)
+pub fn read_swap_processes() -> io::Result<Vec<SwapProcessInfo>> {
+    let mut swap_processes = Vec::new();
+
     for entry in fs::read_dir("/proc")? {
         let entry = entry?;
         if !entry.file_type()?.is_dir() {
@@ -50,14 +62,12 @@ pub fn read_process_swap_usage_with_names() -> io::Result<()> {
         let status_path = format!("/proc/{}/status", pid);
         let contents = match fs::read_to_string(&status_path) {
             Ok(contents) => contents,
-            Err(err) => {
-                warn!("Unable to read {}: {}", status_path, err);
-                continue;
-            }
+            Err(_) => continue, // Process may have exited
         };
 
         let mut name = String::new();
         let mut swap_usage: u64 = 0;
+        let mut uid: u32 = 0;
 
         for line in contents.lines() {
             if let Some(value) = line.strip_prefix("Name:") {
@@ -68,13 +78,63 @@ pub fn read_process_swap_usage_with_names() -> io::Result<()> {
                     .next()
                     .and_then(|v| v.parse().ok())
                     .unwrap_or(0);
+            } else if let Some(value) = line.strip_prefix("Uid:") {
+                // First value is real UID
+                uid = value
+                    .split_whitespace()
+                    .next()
+                    .and_then(|v| v.parse().ok())
+                    .unwrap_or(0);
             }
         }
 
         if swap_usage > 0 {
-            swap_usage_per_process.push((pid, name, swap_usage));
+            // Try to read cmdline
+            let cmdline_path = format!("/proc/{}/cmdline", pid);
+            let cmdline = fs::read_to_string(&cmdline_path)
+                .map(|c| c.replace('\0', " ").trim().to_string())
+                .unwrap_or_default();
+
+            // Try to resolve username from UID
+            let user = get_username_from_uid(uid);
+
+            swap_processes.push(SwapProcessInfo {
+                pid,
+                name,
+                swap_kib: swap_usage,
+                cmdline,
+                user,
+            });
         }
     }
-    swap_usage_per_process.sort_by(|a, b| b.2.cmp(&a.2));
+
+    // Sort by swap usage descending
+    swap_processes.sort_by(|a, b| b.swap_kib.cmp(&a.swap_kib));
+
+    Ok(swap_processes)
+}
+
+/// Get username from UID by reading /etc/passwd
+fn get_username_from_uid(uid: u32) -> String {
+    // Try to read /etc/passwd and find username
+    if let Ok(contents) = fs::read_to_string("/etc/passwd") {
+        for line in contents.lines() {
+            let parts: Vec<&str> = line.split(':').collect();
+            if parts.len() >= 3 {
+                if let Ok(line_uid) = parts[2].parse::<u32>() {
+                    if line_uid == uid {
+                        return parts[0].to_string();
+                    }
+                }
+            }
+        }
+    }
+    // Fall back to UID string
+    uid.to_string()
+}
+
+#[allow(dead_code)]
+pub fn read_process_swap_usage_with_names() -> io::Result<()> {
+    let _ = read_swap_processes()?;
     Ok(())
 }

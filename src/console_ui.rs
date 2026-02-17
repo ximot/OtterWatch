@@ -49,7 +49,7 @@ pub fn spawn_console_view(
                 format_bytes_from_kib(stats.swap_usage),
                 format_bytes_from_kib(stats.swap_total)
             );
-            buffer.push_str("\n");
+            buffer.push('\n');
 
             let _ = writeln!(buffer, "Program stats:");
             let _ = writeln!(buffer, "  CPU usage : {:>6.2}%", program.cpu_percent);
@@ -58,7 +58,7 @@ pub fn spawn_console_view(
                 "  Memory    : {}",
                 format_bytes(program.memory_bytes)
             );
-            buffer.push_str("\n");
+            buffer.push('\n');
 
             let _ = writeln!(buffer, "PSI (avg10/avg60/avg300 %):");
             let _ = writeln!(
@@ -76,7 +76,7 @@ pub fn spawn_console_view(
                 "  {}",
                 format_pressure_line("I/O", pressure.io.as_ref())
             );
-            buffer.push_str("\n");
+            buffer.push('\n');
 
             let _ = writeln!(buffer, "Read timings (ms):");
             let _ = writeln!(buffer, "  CPU    : {}", format_duration(timings.cpu_read));

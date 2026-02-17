@@ -1,0 +1,30 @@
+# Minimal settings for container deployment
+# All values are overridden by environment variables (APP_* prefix)
+
+# Collection
+interval_secs = 1
+process_list_interval_secs = 10
+process_top_n = 10
+
+# Local HTTP API
+listen_addr = "0.0.0.0:8080"
+cors_allowed_origins = "*"
+
+# Local storage (disabled for containers)
+db_file_name = "/var/lib/otterwatch"
+db_save = false
+db_history_days = 7
+exclude_interfaces = "lo"
+
+# MQTT
+mqtt_enabled = true
+mqtt_broker_addr = "tcp://mqtt:1883"
+mqtt_api_key = "change-me"
+mqtt_topic_prefix = "otterwatch/metrics"
+mqtt_queue_path = "/var/lib/otterwatch/mqtt_queue"
+mqtt_queue_max_size_mb = 10
+mqtt_keepalive_secs = 30
+mqtt_retry_interval_secs = 5
+
+# Agent identity
+agent_group = "default"

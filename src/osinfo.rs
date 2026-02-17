@@ -1,16 +1,17 @@
 use log::warn;
-use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
-use std::fs;
+use std::fs::{self, File};
+use std::io::{self, Write};
+use std::path::Path;
 
-#[derive(Serialize, Deserialize)]
-struct OSInfo {
-    hostname: String,
-    os_name: String,
-    kernel_version: String,
-    start_time: String,
-    cpu_name: String,
-    cpu_cores: usize,
+#[derive(Serialize, Deserialize, Clone)]
+pub struct OSInfo {
+    pub hostname: String,
+    pub os_name: String,
+    pub kernel_version: String,
+    pub start_time: String,
+    pub cpu_name: String,
+    pub cpu_cores: usize,
 }
 
 fn get_os_info() -> OSInfo {
@@ -82,25 +83,14 @@ fn get_os_info() -> OSInfo {
     }
 }
 
-pub fn save_os_info_to_db(db_file_name: &String) {
-    // DEBUG TIME
-    use std::time::Instant;
-    let now = Instant::now();
-
-    let conn = Connection::open(db_file_name).expect("DB connection failed!");
-
+pub fn save_os_info_to_file(root: &Path) -> io::Result<()> {
+    fs::create_dir_all(root)?;
     let os_info = get_os_info();
-
-    conn.execute(
-        "INSERT INTO system (os_name, kernel_version, boot_time, cpu_name, cpu_cores, hostname) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        params![os_info.os_name, os_info.kernel_version, os_info.start_time, os_info.cpu_name, os_info.cpu_cores, os_info.hostname],
-    ).expect("Failed to insert stats");
-
-    if let Err((_, err)) = conn.close() {
-        warn!("Unable to close database connection cleanly: {}", err);
-    }
-    let elapsed = now.elapsed();
-    println!("TIME GET SYS INFO: {:.2?}", elapsed);
+    let path = root.join("system_info.json");
+    let mut file = File::create(&path)?;
+    serde_json::to_writer_pretty(&mut file, &os_info)?;
+    file.write_all(b"\n")?;
+    Ok(())
 }
 
 pub fn show_os_info() {
@@ -115,11 +105,16 @@ pub fn show_os_info() {
 
 pub fn get_os_info_api() -> serde_json::Result<String> {
     let os_info = get_os_info();
-    let a = serde_json::to_string(&os_info);
-    return a;
+    serde_json::to_string(&os_info)
 }
 
-pub fn show_and_save_os_info_to_db(db_file_name: &String) {
-    save_os_info_to_db(db_file_name);
+/// Returns OS info as a struct (used for MQTT agent registration)
+pub fn get_os_info_struct() -> OSInfo {
+    get_os_info()
+}
+
+pub fn show_and_save_os_info(root: &Path) -> io::Result<()> {
+    let result = save_os_info_to_file(root);
     show_os_info();
+    result
 }

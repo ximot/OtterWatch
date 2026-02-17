@@ -1,11 +1,11 @@
 [package]
 name = "otterwatch"
-version = "0.0.5"
+version = "0.3.6"
 authors = ["Tomasz Wyderka <twyderka@me.com>"]
 description = "Application for monitoring the performance of the Linux operating system"
 repository = "https://github.com/ximot/OtterWatch"
 readme = "README.md"
-rust-version = "1.68.2"
+rust-version = "1.83.0"
 edition = "2021"
 homepage = "https://github.com/ximot/OtterWatch"
 license = "MIT"
@@ -16,19 +16,40 @@ libc = "0.2"
 actix-web = "4.8.0"
 actix-cors = "0.7.0"
 actix-files = "0.6.6"
-rusqlite = { version = "0.31.0", features = ["bundled"] }
 tokio = { version = "1.39.2", features = ["full"] }
-config = "0.11.0"
+config = { version = "0.15.19", default-features = false, features = ["toml"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.121"
 once_cell = "1.19.0"
-chrono = "0.4.38"
+chrono = { version = "0.4.38", features = ["serde"] }
 regex = "1.10.5"
 log = "0.4.22"
+env_logger = "0.11"
 toml = "0.8.16"
+toml_edit = "0.22"
 time = "0.3.36"
-r2d2 = "0.8.10"
-r2d2_sqlite = "0.24.0"
+
+# MQTT and Protocol Buffers
+prost = "0.13"
+prost-types = "0.13"
+rumqttc = "0.24"
+uuid = { version = "1.0", features = ["v4"] }
+
+# Self-update
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream", "json"] }
+sha2 = "0.10"
+
+# Jitter for reconnection (thundering herd prevention)
+rand = "0.8"
+
+# Atomic Arc swap for MQTT failover
+arc-swap = "1.7"
+
+[build-dependencies]
+prost-build = "0.13"
+
+[dev-dependencies]
+tempfile = "3"
 
 [package.metadata.generate-rpm]
 assets = [
